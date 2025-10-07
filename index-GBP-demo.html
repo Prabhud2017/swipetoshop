@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swipe Cards</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: transparent;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* HEADING STYLE */
+        .at-app-heading {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1f2937; 
+        }
+
+        /* Reverted to Fixed Card Size */
+        .at-card-container {
+            position: relative;
+            width: 300px; /* Reverted */
+            height: 450px; /* Reverted */
+            background-color: transparent;
+            border-radius: 1rem;
+            box-shadow: none;
+            padding: 20px;
+            margin-left: 20px;
+        }
+
+        .at-card {
+            position: absolute;
+            width: calc(100% - 40px);
+            height: calc(100% - 40px);
+            background-color: #ffffff;
+            border-radius: 1rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55), box-shadow 0.3s ease;
+            cursor: grab;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            user-select: none;
+            will-change: transform;
+            -webkit-user-select: none;
+            touch-action: none;
+            top: 20px;
+            left: 20px;
+        }
+
+        .at-card.at-dragging {
+            transition: none;
+        }
+
+        .at-card.at-active {
+            z-index: 10;
+        }
+
+        /* Fixed pixel-based transforms */
+        .at-card.at-swipe-left {
+            transform: translateX(-500px) rotate(-30deg) !important;
+        }
+
+        .at-card.at-swipe-right {
+            transform: translateX(500px) rotate(30deg) !important;
+        }
+
+        /* Add to Cart remains stationary */
+        .at-card.at-add-to-cart-success {
+            transform: translateY(0px) scale(1) !important; 
+        }
+
+        .at-card-image-wrapper {
+            width: 100%;
+            height: 70%;
+            overflow: hidden;
+            border-radius: 1rem 1rem 0 0;
+        }
+
+        .at-card-image {
+            width: 100%;
+            height: 100%;
+            border-radius: 1rem 1rem 0 0;
+        }
+        
+        .at-card-content {
+            width: 100%;
+            padding: 1rem;
+            text-align: center;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .at-card-title {
+            font-size: 1rem;
+            color: #333;
+        }
+
+        .at-card-subtitle {
+            font-size: 1rem;
+            color: #000000;
+            font-weight: bold;
+        }
+
+        /* SUCCESS MESSAGE STATUS (ADDED BACK) */
+        #at-status-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 10px 20px;
+            background-color: #28443c; /* Tailwind emerald-500 */
+            color: white;
+            border-radius: 8px;
+            font-weight: bold;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 100;
+        }
+        
+        #at-status-message.at-show {
+            opacity: 1;
+        }
+
+        /* Icon Styles (Simplified for Add to Cart Success) */
+        .at-card-like, .at-card-dislike {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8); 
+            font-size: 4rem; 
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            z-index: 15;
+            pointer-events: none;
+            line-height: 1;
+        }
+
+        .at-card-like {
+            color: #22c55e; 
+        }
+        
+        .at-card-dislike {
+            color: #ef4444; /* Reverted to red for skip/dislike visual */
+            border: 2px solid #ef4444; /* Reverted border for visual hint */
+            display: block; /* Show for manual drag/skip button */
+            font-size: 2rem; /* Smaller size for drag hint */
+            transform: rotate(15deg);
+            padding: 0.5rem 1rem;
+            background-color: transparent;
+        }
+
+        .at-card-like.at-visible {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.2); 
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        
+        .at-add-to-cart-success .at-card-like {
+            content: "✅"; 
+            color: #22c55e;
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.5); 
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+
+        .at-button-container {
+            display: flex;
+            gap: 20px;
+        }
+
+        .at-action-button {
+            padding: 15px 30px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+
+        #at-next-button {
+            color: #000;
+            background: #fab41c;
+            border: 3px solid #fab41c;
+        }
+
+        #at-next-button:hover {
+            background: #FFF;
+            border: 3px solid #fab41c;
+        }
+
+        #at-cart-button {
+            color: #FFF;
+            background: #28443b;
+            border: 3px solid #28443b;
+        }
+
+        #at-cart-button:hover {
+            color: #28443b;
+            background: #FFF;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+<div id="at-app" class="flex flex-col items-center">
+    <h1 class="at-app-heading">Our recommendation</h1>
+
+    <div class="at-card-container">
+        <div class="at-card" data-index="6">
+            <div class="at-card-like"></div> 
+            <div class="at-card-dislike">SKIP</div> 
+            <div class="at-card-image-wrapper">
+                <img src="https://www.packersproshop.com/media/catalog/product/cache/ca7319187ed9bf58bafb9c1ac33cde70/0/3/0301022219_03_13_2500.jpg" class="at-card-image" alt="Product 1">
+            </div>
+            <div class="at-card-content">
+                <div class="at-card-title">Packers Carhartt x '47 Black Trucker Cap</div>
+                <div class="at-card-subtitle">$39.99</div>
+            </div>
+        </div>
+        <div class="at-card" data-index="5">
+            <div class="at-card-like"></div> 
+            <div class="at-card-dislike">SKIP</div> 
+            <div class="at-card-image-wrapper">
+                <img src="https://www.packersproshop.com/media/catalog/product/cache/ca7319187ed9bf58bafb9c1ac33cde70/2/2/2209727102_37_13_2500.jpg" class="at-card-image" alt="Product 2">
+            </div>
+            <div class="at-card-content">
+                <div class="at-card-title">Packers BaubleBar Bracelet Bead Kit</div>
+                <div class="at-card-subtitle">$64.99</div>
+            </div>
+        </div>
+        <div class="at-card" data-index="4">
+            <div class="at-card-like"></div> 
+            <div class="at-card-dislike">SKIP</div> 
+            <div class="at-card-image-wrapper">
+                <img src="https://www.packersproshop.com/media/catalog/product/cache/ca7319187ed9bf58bafb9c1ac33cde70/0/6/0601162081_37_13_2500.jpg" class="at-card-image" alt="Product 3">
+            </div>
+            <div class="at-card-content">
+                <div class="at-card-title">Packers 2026 Team Wall Calendar</div>
+                <div class="at-card-subtitle">$19.99</div>
+            </div>
+        </div>
+        <div class="at-card" data-index="3">
+            <div class="at-card-like"></div> 
+            <div class="at-card-dislike">SKIP</div> 
+            <div class="at-card-image-wrapper">
+                <img src="https://www.packersproshop.com/media/catalog/product/cache/ca7319187ed9bf58bafb9c1ac33cde70/0/4/0403163052_18_13_2500.jpg" class="at-card-image" alt="Product 4">
+            </div>
+            <div class="at-card-content">
+                <div class="at-card-title">Packers FOCO Woods Snow Globe</div>
+                <div class="at-card-subtitle">$31.99</div>
+            </div>
+        </div>
+        <div class="at-card" data-index="2">
+            <div class="at-card-like"></div> 
+            <div class="at-card-dislike">SKIP</div> 
+            <div class="at-card-image-wrapper">
+                <img src="https://www.packersproshop.com/media/catalog/product/cache/ca7319187ed9bf58bafb9c1ac33cde70/6/1/6103710126_40_13_2500.jpg" class="at-card-image" alt="Product 5">
+            </div>
+            <div class="at-card-content">
+                <div class="at-card-title">Packers Nike 2025 Salute to Service Womens Hoodie</div>
+                <div class="at-card-subtitle">$114.99</div>
+            </div>
+        </div>
+        <div class="at-card" data-index="1">
+            <div class="at-card-like"></div> 
+            <div class="at-card-dislike">SKIP</div> 
+            <div class="at-card-image-wrapper">
+                <img src="https://www.packersproshop.com/media/catalog/product/cache/ca7319187ed9bf58bafb9c1ac33cde70/2/0/2020691107_37_13_2500.jpg" class="at-card-image" alt="Product 6">
+            </div>
+            <div class="at-card-content">
+                <div class="at-card-title">Packers Inflatable LED Steinbacker</div>
+                <div class="at-card-subtitle">$134.99</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="at-button-container">
+        <button id="at-next-button" class="at-action-button">
+            Next
+        </button>
+        <button id="at-cart-button" class="at-action-button">
+            Add to cart
+        </button>
+    </div>
+    
+    <div id="at-status-message"></div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const cards = Array.from(document.querySelectorAll('.at-card')).reverse();
+        const nextButton = document.getElementById('at-next-button');
+        const cartButton = document.getElementById('at-cart-button');
+        const statusMessage = document.getElementById('at-status-message'); // Element reference
+
+        const DRAG_THRESHOLD = 50; // Reverted to fixed pixel threshold
+        const ANIMATION_DURATION = 500; 
+        const CART_SUCCESS_DURATION = 800; 
+
+        let activeCard = null;
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let currentX = 0;
+        let currentY = 0;
+
+        function updateCardOrder() {
+            cards.forEach((card, index) => {
+                const zIndex = cards.length - index;
+                
+                if (index === 0) {
+                    card.style.transform = `translateY(0px) scale(1)`;
+                    card.style.display = 'block';
+                    card.style.zIndex = zIndex + 1;
+                    card.classList.add('at-active'); 
+                } else if (index === 1) {
+                    // Reverted back to fixed pixel offset
+                    card.style.transform = `translateX(-25px) translateY(10px) scale(0.95)`;
+                    card.style.display = 'block';
+                    card.style.zIndex = zIndex; 
+                    card.classList.remove('at-active');
+                } else {
+                    card.style.display = 'none';
+                    card.classList.remove('at-active');
+                }
+                
+                // Cleanup classes
+                card.classList.remove('at-swipe-left', 'at-swipe-right', 'at-add-to-cart-success');
+                const likeIcon = card.querySelector('.at-card-like');
+                const dislikeIcon = card.querySelector('.at-card-dislike');
+                if (likeIcon) {
+                    likeIcon.classList.remove('at-visible');
+                    likeIcon.style.opacity = 0;
+                }
+                if (dislikeIcon) {
+                    dislikeIcon.classList.remove('at-visible');
+                    dislikeIcon.style.opacity = 0;
+                }
+            });
+            activeCard = cards[0];
+        }
+
+        // Function to show the status message
+        function showStatusMessage(message) {
+            statusMessage.textContent = message;
+            statusMessage.classList.add('at-show');
+            setTimeout(() => {
+                statusMessage.classList.remove('at-show');
+            }, 1000); // Message disappears after 1 second
+        }
+        
+        // --- Card Action Logic ---
+        function handleCardAction(action, cardToSwipe = activeCard) {
+            if (!cardToSwipe) return;
+
+            const likeIcon = cardToSwipe.querySelector('.at-card-like');
+            const dislikeIcon = cardToSwipe.querySelector('.at-card-dislike');
+            
+            // 1. Apply animation/icon class
+            if (action === 'skip') {
+                cardToSwipe.classList.add('at-swipe-right'); 
+                if (dislikeIcon) dislikeIcon.classList.add('at-visible');
+            } else if (action === 'check') {
+                cardToSwipe.classList.add('at-swipe-left'); 
+                if (likeIcon) likeIcon.classList.add('at-visible');
+            } else if (action === 'add-to-cart') {
+                // ADDED: Show text message
+                showStatusMessage("Added to the cart");
+                
+                // Trigger visual success animation on the card
+                cardToSwipe.classList.add('at-add-to-cart-success');
+            }
+
+            // 2. Handle card reordering (for skip/check only)
+            if (action === 'skip' || action === 'check') {
+                setTimeout(() => {
+                    handleCardReorder(cardToSwipe);
+                }, ANIMATION_DURATION);
+            } else if (action === 'add-to-cart') {
+                // Card stays put, just hide the icon after the success visual
+                setTimeout(() => {
+                    cardToSwipe.classList.remove('at-add-to-cart-success');
+                }, CART_SUCCESS_DURATION);
+            }
+        }
+
+        function handleCardReorder(cardToReorder) {
+            const swipedCardIndex = cards.indexOf(cardToReorder);
+            if (swipedCardIndex > -1) {
+                cards.splice(swipedCardIndex, 1);
+                cards.push(cardToReorder);
+                cardToReorder.style.transform = '';
+                updateCardOrder();
+            }
+        }
+
+
+        // --- Button Click Handlers ---
+        nextButton.addEventListener('click', () => {
+            handleCardAction('skip');
+        });
+
+        cartButton.addEventListener('click', () => {
+            handleCardAction('add-to-cart');
+        });
+
+
+        // --- Touch/Mouse Handlers ---
+        function handleStart(e) {
+            if (!activeCard) return;
+
+            isDragging = true;
+            activeCard.classList.add('at-dragging');
+            
+            if (e.type === 'touchstart') {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            } else {
+                startX = e.clientX;
+                startY = e.clientY;
+            }
+            currentX = 0;
+            currentY = 0;
+        }
+
+        function handleMove(e) {
+            if (!isDragging || !activeCard) return;
+
+            let x, y;
+            if (e.type === 'touchmove') {
+                x = e.touches[0].clientX;
+                y = e.touches[0].clientY;
+            } else {
+                x = e.clientX;
+                y = e.clientY;
+            }
+
+            currentX = x - startX;
+            currentY = y - startY;
+
+            const rotate = currentX / 20;
+
+            activeCard.style.transform = `translate(${currentX}px, ${currentY}px) rotate(${rotate}deg)`;
+            
+            // Show/Hide icons based on drag amount
+            const likeOpacity = Math.max(0, Math.min(currentX / 50, 1));
+            const dislikeOpacity = Math.max(0, Math.min(-currentX / 50, 1));
+
+            const likeIcon = activeCard.querySelector('.at-card-like');
+            const dislikeIcon = activeCard.querySelector('.at-card-dislike');
+
+            if (likeIcon) likeIcon.style.opacity = likeOpacity;
+            if (dislikeIcon) dislikeIcon.style.opacity = dislikeOpacity;
+        }
+
+        function handleEnd() {
+            if (!isDragging || !activeCard) return;
+
+            isDragging = false;
+            activeCard.classList.remove('at-dragging');
+            
+            const swipedCard = activeCard; 
+
+            if (Math.abs(currentX) > DRAG_THRESHOLD) {
+                const action = currentX < 0 ? 'check' : 'skip'; 
+                
+                handleCardAction(action, swipedCard);
+            } else {
+                // Snap back
+                swipedCard.style.transform = '';
+                const likeIcon = swipedCard.querySelector('.at-card-like');
+                const dislikeIcon = swipedCard.querySelector('.at-card-dislike');
+                if (likeIcon) likeIcon.style.opacity = 0;
+                if (dislikeIcon) dislikeIcon.style.opacity = 0;
+            }
+
+            currentX = 0;
+            currentY = 0;
+        }
+
+        cards.forEach(card => {
+            card.addEventListener('mousedown', handleStart);
+            card.addEventListener('touchstart', handleStart, { passive: true });
+        });
+
+        document.addEventListener('mousemove', handleMove);
+        document.addEventListener('touchmove', handleMove, { passive: true });
+        document.addEventListener('mouseup', handleEnd);
+        document.addEventListener('touchend', handleEnd);
+        
+        updateCardOrder();
+    });
+</script>
+
+</body>
+</html>
