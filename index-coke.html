@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Navigator</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: transparent;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* HEADING STYLE */
+        .at-app-heading {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1f2937;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Card Container (Fixed Size) */
+        .at-card-container {
+            position: relative;
+            width: 469px; /* Fixed width */
+            height: 347px; /* Fixed height */
+            background-color: transparent;
+            border-radius: 1rem;
+            box-shadow: none;
+            padding: 20px;
+            margin-bottom: 30px; /* Space for buttons */
+        }
+
+        .at-card {
+            position: absolute;
+            width: calc(100% - 40px);
+            height: calc(100% - 40px);
+            background-color: #ffffff;
+            border-radius: 1rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            /* Transition for reset and stacking, faster for cycling */
+            transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55), box-shadow 0.3s ease; 
+            cursor: grab;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            user-select: none;
+            will-change: transform;
+            -webkit-user-select: none;
+            touch-action: none;
+            top: 20px;
+            left: 20px;
+        }
+        .at-card.at-dragging {
+            transition: none;
+        }
+        .at-card.at-active {
+            z-index: 10;
+        }
+
+        /* Swipe Animations - Faster duration for smoother cycling */
+        .at-card.at-swipe-left {
+            transform: translateX(-500px) rotate(-30deg) !important;
+        }
+        .at-card.at-swipe-right {
+            transform: translateX(500px) rotate(30deg) !important;
+        }
+        
+        /* Removed .at-add-to-cart-success styles */
+
+        .at-card-image-wrapper {
+            width: 100%;
+            height: auto;
+            overflow: hidden;
+            border-radius: 1rem 1rem 0 0;
+        }
+        .at-card-image {
+            width: 100%;
+            height: 247px;
+            object-fit: cover;
+            border-radius: 1rem 1rem 0 0;
+        }
+        .at-card-content {
+            width: 100%;
+            padding: 1rem;
+            text-align: center;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .at-card-title {
+            font-size: 1rem;
+            color: #333;
+            font-weight: 600;
+        }
+        .at-card-subtitle {
+            font-size: 1rem;
+            color: #000000;
+            font-weight: bold;
+            margin-top: 0.25rem;
+        }
+
+        /* Removed #at-status-message styles */
+
+        /* Icon Styles (Updated for NEXT / PREV) */
+        .at-card-like, .at-card-dislike {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            font-size: 4rem;
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            z-index: 15;
+            pointer-events: none;
+            line-height: 1;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            display: block;
+        }
+
+        /* NEXT Icon (Swipe Left) - Same styling as previous 'Like' but mapped to 'NEXT' */
+        .at-card-like {
+            color: #22c55e;
+            border: 3px solid #22c55e;
+            background-color: rgba(255, 255, 255, 0.8);
+            transform: translate(-100%, -50%) rotate(-15deg); /* Positioned for Left Swipe */
+        }
+        .at-card-like::before {
+            content: "NEXT"; /* Use text label for clarity */
+        }
+
+        /* PREV Icon (Swipe Right) - Same styling as previous 'Dislike' but mapped to 'PREV' */
+        .at-card-dislike {
+            color: #ef4444;
+            border: 3px solid #ef4444;
+            background-color: rgba(255, 255, 255, 0.8);
+            transform: translate(0%, -50%) rotate(15deg); /* Positioned for Right Swipe */
+        }
+        .at-card-dislike::before {
+             content: "PREV"; /* Use text label for clarity */
+        }
+        
+        /* Removed success icon specific styles */
+
+        /* Drag Visual Feedback */
+        .at-card-like.at-visible {
+            opacity: 1;
+            transform: translate(-100%, -50%) rotate(-15deg) scale(1.2);
+        }
+        .at-card-dislike.at-visible {
+            opacity: 1;
+            transform: translate(0%, -50%) rotate(15deg) scale(1.2);
+        }
+
+        .at-button-container {
+            display: flex;
+    align-items: center;
+    justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .at-action-button {
+            padding: 15px 30px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+        /* Prev Button (was Skip) */
+        #at-prev-button { 
+            color: #FFF;
+            background: #ed0b02; /* Yellow */
+            border: 3px solid #ed0b02;
+        }
+        #at-prev-button:hover {
+            background: #FFF;
+            border: 3px solid #ed0b02;
+            color: #ed0b02;
+        }
+        /* Next Button (was Add to Cart) */
+        #at-next-button { 
+            color: #FFF;
+            background: #ed0b02; /* Dark Green */
+            border: 3px solid #ed0b02;
+        }
+        #at-next-button:hover {
+            color: #ed0b02;
+            background: #FFF;
+        }
+
+        /* Retained End-of-Stack Message Style for cycling end state */
+        #at-no-more-products {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            background: #fff;
+            border-radius: 1rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            width: 300px;
+            height: 450px;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #at-no-more-products h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #28443b;
+        }
+        #at-no-more-products p {
+            margin-top: 10px;
+            color: #6b7280;
+        }
+        .at-shop-now-button {
+            font-weight: 700;
+            font-size: 18px;
+            line-height: 18px;
+            text-align: center;
+            border-radius: 20px;
+            padding: 5px 24px;
+            width: 217px;
+            height: 35px;
+            margin-top: 20px;
+            margin-left: auto;
+            margin-right: auto;
+            background-color: #f40000;
+            color: #ffffff;
+            border: 3px solid #f40000;
+        }
+
+        .at-shop-now-button:hover {
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+<div id="at-app" class="flex flex-col items-center">
+    <div class="at-card-container">
+        <!-- Message for when the stack is empty (only visible if cards array is empty) -->
+        <div id="at-no-more-products" class="absolute inset-0 flex">
+            <h2>You're viewing all products!</h2>
+            <p>Cycle back through to see the beginning.</p>
+        </div>
+
+        <!-- Card Stack -->
+        <div class="at-card" data-index="6">
+            
+            <div class="at-card-image-wrapper">
+                <img src="https://www.coca-colastore.com/media/catalog/category/free_shipping_2.png" class="at-card-image" onerror="this.onerror=null;this.src='https://placehold.co/300x300/F2F2F2/333?text=Product+7';" alt="Packers Carhartt x '47 Black Trucker Cap">
+            </div>
+            <div class="at-card-content">
+                <button class="at-shop-now-button">SHOP NOW</button>
+            </div>
+        </div>
+        <div class="at-card" data-index="5">
+            
+            <div class="at-card-image-wrapper">
+                <img src="https://www.coca-colastore.com/media/catalog/category/Coke_zero-2.png" class="at-card-image" onerror="this.onerror=null;this.src='https://placehold.co/300x300/F2F2F2/333?text=Product+6';" alt="Packers BaubleBar Bracelet Bead Kit">
+            </div>
+            <div class="at-card-content">
+                <button class="at-shop-now-button">SHOP NOW</button>
+            </div>
+        </div>
+        <div class="at-card" data-index="4">
+            
+            <div class="at-card-image-wrapper">
+                <img src="https://www.coca-colastore.com/media/catalog/category/free_shipping_2.png" class="at-card-image" onerror="this.onerror=null;this.src='https://placehold.co/300x300/F2F2F2/333?text=Product+5';" alt="Packers 2026 Team Wall Calendar">
+            </div>
+            <div class="at-card-content">
+                <button class="at-shop-now-button">SHOP NOW</button>
+            </div>
+        </div>
+        <div class="at-card" data-index="3">
+            
+            <div class="at-card-image-wrapper">
+                <img src="https://www.coca-colastore.com/media/catalog/category/Coke_zero-2.png" class="at-card-image" onerror="this.onerror=null;this.src='https://placehold.co/300x300/F2F2F2/333?text=Product+4';" alt="Packers FOCO Woods Snow Globe">
+            </div>
+            <div class="at-card-content">
+                <button class="at-shop-now-button">SHOP NOW</button>
+            </div>
+        </div>
+        <div class="at-card" data-index="2">
+            
+            <div class="at-card-image-wrapper">
+                <img src="https://www.coca-colastore.com/media/catalog/category/free_shipping_2.png" class="at-card-image" onerror="this.onerror=null;this.src='https://placehold.co/300x300/F2F2F2/333?text=Product+3';" alt="Packers Nike 2025 Salute to Service Womens Hoodie">
+            </div>
+            <div class="at-card-content">
+                <button class="at-shop-now-button">SHOP NOW</button>
+            </div>
+        </div>
+        <div class="at-card" data-index="1">
+            
+            <div class="at-card-image-wrapper">
+                <img src="https://www.coca-colastore.com/media/catalog/category/Coke_zero-2.png" class="at-card-image" onerror="this.onerror=null;this.src='https://placehold.co/300x300/F2F2F2/333?text=Product+2';" alt="Packers Inflatable LED Steinbacker">
+            </div>
+            <div class="at-card-content">
+                <button class="at-shop-now-button">SHOP NOW</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="at-button-container">
+        <!-- Changed ID and Text: Skip -> Prev -->
+        <button id="at-prev-button" class="at-action-button"> 
+            Prev
+        </button>
+        <!-- Changed ID and Text: Add to Cart -> Next -->
+        <button id="at-next-button" class="at-action-button"> 
+            Next
+        </button>
+    </div>
+    <!-- Removed <div id="at-status-message"></div> -->
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Reverse the node list to process from back to front visually
+        const cards = Array.from(document.querySelectorAll('.at-card')).reverse();
+        const cardContainer = document.querySelector('.at-card-container');
+        // Updated button element references
+        const prevButton = document.getElementById('at-prev-button');
+        const nextButton = document.getElementById('at-next-button');
+        const buttonContainer = document.querySelector('.at-button-container');
+        // Retrieve the "no more products" message element
+        const noMoreProducts = document.getElementById('at-no-more-products'); 
+        
+        // Removed statusMessage reference
+
+        const DRAG_THRESHOLD = 50;
+        const ANIMATION_DURATION = 400; // Faster for cycling
+
+        let activeCard = null;
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let currentX = 0;
+        let currentY = 0;
+
+        // --- Core UI Management ---
+
+        function updateCardOrder() {
+            if (cards.length === 0) {
+                // Should not happen in a cycling view, but handled defensively
+                cardContainer.style.display = 'none';
+                buttonContainer.style.display = 'none';
+                noMoreProducts.style.display = 'flex';
+                return;
+            } else {
+                cardContainer.style.display = 'block';
+                buttonContainer.style.display = 'flex';
+                noMoreProducts.style.display = 'none';
+            }
+
+            cards.forEach((card, index) => {
+                const zIndex = cards.length - index;
+                card.style.display = 'block';
+
+                // Only transform the card behind the active one (index 1)
+                if (index === 0) {
+                    card.style.transform = `translateY(0px) scale(1)`;
+                    card.style.zIndex = zIndex + 1;
+                    card.classList.add('at-active');
+                } else if (index === 1) {
+                    card.style.transform = `translateX(-25px) translateY(10px) scale(0.95)`;
+                    card.style.zIndex = zIndex;
+                    card.classList.remove('at-active');
+                } else {
+                    card.style.display = 'none'; // Hide cards further back
+                    card.classList.remove('at-active');
+                }
+
+                // Cleanup visual classes/styles
+                card.classList.remove('at-swipe-left', 'at-swipe-right');
+                const likeIcon = card.querySelector('.at-card-like');
+                const dislikeIcon = card.querySelector('.at-card-dislike');
+                if (likeIcon) likeIcon.style.opacity = 0;
+                if (dislikeIcon) dislikeIcon.style.opacity = 0;
+            });
+
+            activeCard = cards[0];
+        }
+
+        // --- Card Action Logic (Next/Prev) ---
+
+        // Function to cycle the array:
+        // 'next': moves the active card (index 0) to the end.
+        // 'prev': moves the last card (index N-1) to the front (index 0).
+        function handleCardCycle(action, cardToSwipe = activeCard) {
+            if (!cardToSwipe) return;
+
+            if (action === 'next') {
+                // Next: Swipe RIGHT animation (interchanged), move active card to the back
+                cardToSwipe.classList.add('at-swipe-right'); // CHANGED from 'at-swipe-left'
+
+                setTimeout(() => {
+                    const index = cards.indexOf(cardToSwipe);
+                    if (index > -1) {
+                        cards.splice(index, 1); // Remove from front
+                        cards.push(cardToSwipe); // Add to back
+                        cardToSwipe.style.transform = ''; // Reset transform
+                        updateCardOrder();
+                    }
+                }, ANIMATION_DURATION);
+
+            } else if (action === 'prev') {
+                // Prev: Swipe LEFT animation (interchanged), pull last card to the front
+                const lastCard = cards[cards.length - 1];
+                if (!lastCard) return;
+
+                // 1. Prepare visual of the last card (it will become the new active)
+                // We need to move the current active card to the LEFT to simulate it being "pushed" back
+                activeCard.classList.add('at-swipe-left'); // CHANGED from 'at-swipe-right'
+                
+                // 2. Perform array manipulation and stack reset
+                setTimeout(() => {
+                    cards.pop(); // Remove last card
+                    cards.unshift(lastCard); // Add to the front
+                    lastCard.style.transform = ''; // Reset transform on the new active card
+                    updateCardOrder(); 
+                }, ANIMATION_DURATION);
+            }
+        }
+
+        // --- Button Click Handlers ---
+        prevButton.addEventListener('click', () => {
+            handleCardCycle('prev');
+        });
+
+        nextButton.addEventListener('click', () => {
+            handleCardCycle('next');
+        });
+
+        // --- Touch/Mouse Handlers ---
+        // NOTE: The swipe direction (currentX < 0 is Left/Next, currentX > 0 is Right/Prev) 
+        // and icon appearance logic remains the same to reflect the intent of the swipe.
+
+        function handleStart(e) {
+            if (!activeCard) return;
+
+            isDragging = true;
+            activeCard.classList.add('at-dragging');
+
+            if (e.type === 'touchstart') {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            } else {
+                startX = e.clientX;
+                startY = e.clientY;
+            }
+            currentX = 0;
+            currentY = 0;
+        }
+
+        function handleMove(e) {
+            if (!isDragging || !activeCard) return;
+
+            let x, y;
+            if (e.type === 'touchmove') {
+                x = e.touches[0].clientX;
+                y = e.touches[0].clientY;
+            } else {
+                x = e.clientX;
+                y = e.clientY;
+            }
+
+            currentX = x - startX;
+            currentY = y - startY;
+
+            const rotate = currentX / 20;
+
+            activeCard.style.transform = `translate(${currentX}px, ${currentY}px) rotate(${rotate}deg)`;
+
+            // Show/Hide icons based on drag amount
+            // Swipe Left (NEXT action)
+            const likeOpacity = Math.max(0, Math.min(-currentX / 50, 1));
+            // Swipe Right (PREV action)
+            const dislikeOpacity = Math.max(0, Math.min(currentX / 50, 1));
+
+            const likeIcon = activeCard.querySelector('.at-card-like');
+            const dislikeIcon = activeCard.querySelector('.at-card-dislike');
+
+            if (likeIcon) likeIcon.style.opacity = likeOpacity;
+            if (dislikeIcon) dislikeIcon.style.opacity = dislikeOpacity;
+        }
+
+        function handleEnd() {
+            if (!isDragging || !activeCard) return;
+
+            isDragging = false;
+            activeCard.classList.remove('at-dragging');
+
+            const swipedCard = activeCard;
+
+            if (Math.abs(currentX) > DRAG_THRESHOLD) {
+                // Swipe detected
+                const action = currentX < 0 ? 'next' : 'prev';
+                handleCardCycle(action, swipedCard);
+
+            } else {
+                // Snap back
+                swipedCard.style.transform = '';
+                const likeIcon = swipedCard.querySelector('.at-card-like');
+                const dislikeIcon = swipedCard.querySelector('.at-card-dislike');
+                if (likeIcon) likeIcon.style.opacity = 0;
+                if (dislikeIcon) dislikeIcon.style.opacity = 0;
+            }
+
+            currentX = 0;
+            currentY = 0;
+        }
+
+        // --- Event Listeners ---
+        cards.forEach(card => {
+            card.addEventListener('mousedown', handleStart);
+            card.addEventListener('touchstart', handleStart, { passive: true });
+        });
+        document.addEventListener('mousemove', handleMove);
+        document.addEventListener('touchmove', handleMove, { passive: true });
+        document.addEventListener('mouseup', handleEnd);
+        document.addEventListener('touchend', handleEnd);
+
+        // Initialize the card stack
+        updateCardOrder();
+    });
+</script>
+</body>
+</html>
